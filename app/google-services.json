@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "47685626844",
+    "project_id": "olamapdemo-b4d88",
+    "storage_bucket": "olamapdemo-b4d88.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:47685626844:android:0aab560bdc0677b540bd19",
+        "android_client_info": {
+          "package_name": "com.appscrip.olamapdemo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEqZxhoG8yqBs3MUEfHWummXUqxVyBFss"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
