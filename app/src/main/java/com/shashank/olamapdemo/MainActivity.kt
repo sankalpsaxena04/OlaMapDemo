@@ -1,5 +1,8 @@
 package com.appscrip.olamapdemo
 
+import android.Manifest
+import android.Manifest.permission.ACCESS_FINE_LOCATION
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.PointF
@@ -14,7 +17,9 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.appscrip.olamapdemo.R
 import com.appscrip.olamapdemo.databinding.ActivityMainBinding
@@ -32,6 +37,11 @@ import com.appscrip.olamapdemo.util.DataConstants.ADDRESS_DATA
 import com.appscrip.olamapdemo.util.DataConstants.MAP_BASE_URL
 import com.appscrip.olamapdemo.viewmodel.MapsViewModel
 import com.appscrip.olamapdemo.viewmodel.OlaSearchAutoCompleteViewModel
+import com.mapbox.api.directions.v5.models.DirectionsRoute
+import com.ola.maps.navigation.v5.model.route.RouteInfoData
+import com.ola.maps.navigation.v5.navigation.NavigationMapRoute
+import com.ola.maps.navigation.v5.navigation.direction.transform
+import java.util.Locale
 
 class MainActivity : AppCompatActivity(), MapStatusCallback,
     OlaSearchAutoCompleteAdapter.OnAddressClickListener {
@@ -39,12 +49,13 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MapsViewModel by viewModels()
     private val autoCompleteViewModel: OlaSearchAutoCompleteViewModel by viewModels()
-    private var isMapReady = false
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var currentLatLng: LatLng
     private lateinit var textWatcher: TextWatcher
     private val searchAdapter = OlaSearchAutoCompleteAdapter(this)
-    val addressDetailBottomSheet = OlaAddressBottomSheet()
+    private var mCurrentLatLong: String? = "0.0,0.0"
+    private var navigationRoute: NavigationMapRoute? = null
+    private val directionsRouteList = arrayListOf<DirectionsRoute>()
     private val locationPermissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -58,12 +69,16 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.olaMapView.onCreate(savedInstanceState)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        checkLocationPermission()
+        viewModel.getAccessToken(
+            clientId = BuildConfig.CLIENT_ID,
+            clientSecret = BuildConfig.CLIENT_SECRET,
+            onSuccess = {
+                checkLocationPermission()
+            }
+        )
 
     }
 
@@ -75,26 +90,23 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
 
 
     override fun onMapReady() {
-        isMapReady = true
         binding.olaMapView.apply {
-            setFloatingPinToLocation(OlaLatLng(13.035450, 77.597930), true)
-            val shashankLocation = LatLng(13.035450, 77.597930)
-            addMarker(shashankLocation, "my", R.drawable.ic_shashank_logo, true)
+            moveToCurrentLocation()
         }
-        Toast.makeText(this, "map is ready", Toast.LENGTH_SHORT).show()
+        navigationRoute = binding.olaMapView.getNavigationMapRoute()
+        binding.rvSearchedLocation.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = searchAdapter
+        }
 
-        if (isMapReady) {
-            binding.olaMapView.apply {
-                moveToCurrentLocation()
-            }
-            binding.rvSearchedLocation.apply {
-                layoutManager = LinearLayoutManager(this@MainActivity)
-                adapter = searchAdapter
-            }
-            currentLocation()
-            searchLocation()
-            subscribeGetLocation()
+        binding.olaMapView.addOnMapClickListener { latLng ->
+            setupRoute(latLng)
+            true
         }
+
+        currentLocation()
+        searchLocation()
+        subscribeGetLocation()
     }
 
     /*
@@ -124,38 +136,16 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
     private fun checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(
                 this,
-                android.Manifest.permission.ACCESS_FINE_LOCATION
+                ACCESS_FINE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED
         ) {
             olaMapsInit()
-            fusedLocationClient.lastLocation
-                .addOnSuccessListener { location: Location? ->
-                    location?.let {
-                        currentLatLng = LatLng(it.latitude, it.longitude)
-
-                        binding.olaMapView.addHuddleMarkerView(
-                            olaLatLng = OlaLatLng(
-                                latitude = currentLatLng.latitude,
-                                longitude = currentLatLng.longitude
-                            ),
-                            headerText = "Current Location",
-                            descriptionText = "This is your location"
-                        )
-
-                    }
-                }
-                .addOnFailureListener {
-                    Toast.makeText(
-                        this,
-                        "unable to fetch current latitude, longitude",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
         } else {
-            locationPermissionRequest.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+            locationPermissionRequest.launch(ACCESS_FINE_LOCATION)
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun olaMapsInit() {
         binding.olaMapView.initialize(
             mapStatusCallback = this,
@@ -180,13 +170,48 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
                 .setZoomLevel(14.0)
                 .build()
         )
+        setCurrentLocationLabel()
     }
 
+    @SuppressLint("MissingPermission")
+    private fun setCurrentLocationLabel() {
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener { location: Location? ->
+                location?.let {
+                    currentLatLng = LatLng(it.latitude, it.longitude)
+
+                    binding.olaMapView.addHuddleMarkerView(
+                        olaLatLng = OlaLatLng(
+                            latitude = currentLatLng.latitude,
+                            longitude = currentLatLng.longitude
+                        ),
+                        headerText = "Current Location",
+                        descriptionText = "This is your location"
+                    )
+                    mCurrentLatLong = "${currentLatLng.latitude},${currentLatLng.longitude}"
+
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(
+                    this,
+                    "unable to fetch current latitude, longitude",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+    }
+
+    @SuppressLint("MissingPermission")
     private fun searchLocation() {
         textWatcher = object : TextWatcher {
             override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
             override fun onTextChanged(s: CharSequence?, p1: Int, p2: Int, p3: Int) {
-                autoCompleteViewModel.callSearchAutoCompleteApi(input = s.toString())
+                autoCompleteViewModel.callSearchAutoCompleteApi(
+                    location = mCurrentLatLong ?: "0.0,0.0",
+                    radius = 50000,
+                    false,
+                    input = s.toString()
+                )
             }
 
             override fun afterTextChanged(p0: Editable?) {}
@@ -208,13 +233,6 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
         imm.hideSoftInputFromWindow(binding.etSearchLocation.windowToken, 0)
     }
 
-    private fun addressMapDetailBottomSheet(item: Prediction?) {
-        supportFragmentManager.let {
-            addressDetailBottomSheet.show(it, OlaAddressBottomSheet.TAG)
-            val bundle = Bundle()
-            bundle.putParcelable(ADDRESS_DATA, item)
-        }
-    }
 
     override fun onStop() {
         super.onStop()
@@ -224,6 +242,57 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
     override fun onDestroy() {
         binding.olaMapView.onDestroy()
         super.onDestroy()
+    }
+
+    private fun setupRoute(latLng: LatLng) {
+         binding.directionsBtn.isVisible = true
+        binding.olaMapView.updateMarkerView(
+            OlaMarkerOptions.Builder()
+                .setMarkerId(markerViewOptions.markerId)
+                .setPosition(
+                    OlaLatLng(
+                        latitude = latLng.latitude,
+                        longitude = latLng.longitude
+                    )
+                )
+                .setIconIntRes(markerViewOptions.iconIntRes!!)
+                .setIconSize(markerViewOptions.iconSize)
+                .build()
+        )
+        navigationRoute?.removeRoute()
+        navigationRoute?.animateCamera(latLng, 1.0)
+
+        autoCompleteViewModel.getRouteInfo(
+            originLatitudeLongitude = currentLatLng,
+            destinationLatitudeLongitude = latLng,
+            onSuccess = { routeInfoData ->
+                binding.directionsBtn.setOnClickListener {
+                    showRoute(routeInfoData, latLng)
+                    binding.directionsBtn.isVisible = false
+                }
+            }
+        )
+    }
+
+    private fun showRoute(routeInfoData: RouteInfoData, latLng: LatLng) {
+        navigationRoute?.removeRoute()
+        directionsRouteList.clear()
+        directionsRouteList.add(transform(routeInfoData))
+
+        navigationRoute?.addRoutesForRoutePreview(directionsRouteList)
+
+        binding.olaMapView.animateCameraWithLatLngs(
+            olaLatLngs = listOf(
+                OlaLatLng(currentLatLng.latitude, currentLatLng.longitude),
+                OlaLatLng(latLng.latitude, latLng.longitude)
+            ),
+            paddingLeft = 160,
+            paddingBottom = 160,
+            paddingRight = 160,
+            paddingTop = 160,
+        )
+
+        binding.olaMapView.removeMarkerViewWithId(markerViewOptions.markerId)
     }
 
     override fun onAddressSelected(
@@ -237,16 +306,7 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
         hideKeyboard()
         binding.etSearchLocation.clearFocus()
         binding.etSearchLocation.addTextChangedListener(textWatcher)
-        if (item != null) {
-            binding.olaMapView.moveCameraToLatLong(
-                item.geometry?.location?.lng?.let {
-                    OlaLatLng(
-                        item.geometry.location.lat!!,
-                        it, 0.0
-                    )
-                }, 14.0
-            )
-        }
-        //addressMapDetailBottomSheet(item)
+        val latLng = LatLng(item?.geometry?.location?.lat!!, item.geometry.location.lng!!)
+        setupRoute(latLng)
     }
 }

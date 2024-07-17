@@ -33,6 +33,7 @@
                 android:textColor="@color/black" />
         </com.google.android.material.textfield.TextInputLayout>
 
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvSearchedLocation"
             android:layout_width="match_parent"
@@ -58,6 +59,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:shapeAppearance="@style/CornerCut">
+
             <com.google.android.material.imageview.ShapeableImageView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -66,4 +68,20 @@
         </com.google.android.material.card.MaterialCardView>
     </com.ola.maps.navigation.v5.navigation.OlaMapView>
 
+    <Button
+        android:id="@+id/directionsBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:backgroundTint="@android:color/holo_blue_dark"
+        android:drawableStart="@drawable/ic_destination_route_preview"
+        android:drawablePadding="4dp"
+        android:padding="14dp"
+        android:text="Directions"
+        android:textAllCaps="false"
+        android:textColor="@color/white"
+        android:textSize="15sp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>

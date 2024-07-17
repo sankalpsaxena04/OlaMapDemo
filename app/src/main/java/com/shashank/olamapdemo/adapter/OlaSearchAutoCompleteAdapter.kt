@@ -33,7 +33,6 @@ class OlaSearchAutoCompleteAdapter(listener: OnAddressClickListener) :
         private val mBinding = binding
         fun bind(item: Prediction?, mListener: OnAddressClickListener, position: Int) {
             mBinding.apply {
-                tvDistance.text = item?.distanceMeters?.let { formatDistance(it) }
                 tvAddress.text = item?.description.toString()
                 clAddress.setOnClickListener {
                     mListener.onAddressSelected(item, position, mListener)
