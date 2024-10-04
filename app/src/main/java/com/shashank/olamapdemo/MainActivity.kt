@@ -37,6 +37,7 @@ import com.appscrip.olamapdemo.util.DataConstants.ADDRESS_DATA
 import com.appscrip.olamapdemo.util.DataConstants.MAP_BASE_URL
 import com.appscrip.olamapdemo.viewmodel.MapsViewModel
 import com.appscrip.olamapdemo.viewmodel.OlaSearchAutoCompleteViewModel
+import com.itkacher.okprofiler.BuildConfig
 import com.mapbox.api.directions.v5.models.DirectionsRoute
 import com.ola.maps.navigation.v5.model.route.RouteInfoData
 import com.ola.maps.navigation.v5.navigation.NavigationMapRoute
@@ -73,8 +74,8 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
         setContentView(binding.root)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         viewModel.getAccessToken(
-            clientId = BuildConfig.CLIENT_ID,
-            clientSecret = BuildConfig.CLIENT_SECRET,
+            clientId = "9Lr2zIV3ZDNLFO8388klqrL9jnPCfARIUjqe09mN",
+            clientSecret = "vukA6AVH28JsyS87r4vrsZlIPb16FyM7",
             onSuccess = {
                 checkLocationPermission()
             }
@@ -124,8 +125,8 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
             val errorCode = p0.substring(it.lastIndex - 2)
             if (errorCode == "401") {
                 viewModel.getAccessToken(
-                    clientId = BuildConfig.CLIENT_ID,
-                    clientSecret = BuildConfig.CLIENT_SECRET,
+                    clientId = "9Lr2zIV3ZDNLFO8388klqrL9jnPCfARIUjqe09mN",
+                    clientSecret = "vukA6AVH28JsyS87r4vrsZlIPb16FyM7",
                     onSuccess = { olaMapsInit() }
                 )
             }
@@ -151,7 +152,7 @@ class MainActivity : AppCompatActivity(), MapStatusCallback,
             mapStatusCallback = this,
             olaMapsConfig = OlaMapsConfig.Builder()
                 .setApplicationContext(applicationContext) //pass the application context here, it is mandatory
-                .setClientId(BuildConfig.CLIENT_ID) //pass the Organization ID here, it is mandatory
+                .setClientId("55b0a201-4251-4389-bdf0-80176c0d64ed") //pass the Organization ID here, it is mandatory
                 .setMapBaseUrl(MAP_BASE_URL) // pass the Base URL of Ola-Maps here (Stage/Prod URL), it is mandatory
                 .setInterceptor { chain ->
                     val originalRequest = chain.request()
